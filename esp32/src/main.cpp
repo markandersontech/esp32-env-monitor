@@ -1,0 +1,77 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <WebServer.h>
+#include <DHT.h>
+
+#define DHTPIN 4
+#define DHTTYPE DHT11
+
+//DHT dht(DHTPIN, DHTTYPE);
+WebServer server(80);
+
+unsigned long startMillis;
+
+// put function declarations here:
+void handleMetrics() {
+  //float temperature = dht.readTemperature();
+  //float humidity = dht.readHumidity();
+  float temperature = 64;
+  float humidity = 32;
+
+  long uptimeSeconds = millis() / 1000;
+  int wifiRssi = WiFi.RSSI();
+  uint32_t freeHeap = ESP.getFreeHeap();
+
+  String response;
+  response.reserve(512);
+
+  response += "# HELP esp32_temperature_celsius Ambient temperature\n";
+  response += "# TYPE esp32_temperature_celsius gauge\n";
+  response += "esp32_temperature_celsius{location=\"lab\",sensor=\"dht22\"} ";
+  response += String(temperature, 1) + "\n\n";
+
+  response += "# HELP esp32_humidity_percent Relative humidity\n";
+  response += "# TYPE esp32_humidity_percent gauge\n";
+  response += "esp32_humidity_percent{location=\"lab\",sensor=\"dht22\"} ";
+  response += String(humidity, 1) + "\n\n";
+
+  response += "# HELP esp32_uptime_seconds Time since last reboot\n";
+  response += "# TYPE esp32_uptime_seconds counter\n";
+  response += "esp32_uptime_seconds ";
+  response += String(uptimeSeconds) + "\n\n";
+
+  response += "# HELP esp32_wifi_rssi_dbm WiFi signal strength\n";
+  response += "# TYPE esp32_wifi_rssi_dbm gauge\n";
+  response += "esp32_wifi_rssi_dbm ";
+  response += String(wifiRssi) + "\n\n";
+
+  response += "# HELP esp32_free_heap_bytes Free heap memory\n";
+  response += "# TYPE esp32_free_heap_bytes gauge\n";
+  response += "esp32_free_heap_bytes ";
+  response += String(freeHeap) + "\n";
+
+  server.send(200, "text/plain; version=0.0.4", response);
+}
+
+void setup() {
+  Serial.begin(115200);
+  //dht.begin();
+
+  WiFi.begin("SummitNet", "IndiaPaleAle");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
+  Serial.println(WiFi.localIP()); 
+
+  server.on("/metrics", HTTP_GET, handleMetrics);
+  server.begin();
+  Serial.println("Web Server Online"); 
+  startMillis = millis();
+}
+
+
+void loop() {
+  server.handleClient();
+}
+
+
